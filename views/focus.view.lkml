@@ -1,6 +1,6 @@
 view: focus {
+
   derived_table: {
-    datagroup_trigger: daily_datagroup
     sql:
     WITH
     region_names AS (
@@ -99,19 +99,17 @@ view: focus {
           FROM
             UNNEST(tags) ) )) AS focus_tags,
     FROM
-      `@{BILLING_TABLE}`), --updated table alias
-      -- TODO - replace with your detailed usage export table path
+      `data-studio-dashboard-bigquery.Detailed_Billing.gcp_billing_export_resource_v1_012478_27B604_6E78BE`
+    ),
     prices AS (
     SELECT
       *,
       flattened_prices
     FROM
-      `@{PRICING_TABLE}`, -- updated pricing alias
-      -- TODO - replace with your pricing export table path
+       `data-studio-dashboard-bigquery.pricing_export.cloud_pricing_export`,
       UNNEST(list_price.tiered_rates) AS flattened_prices
     WHERE
-      DATE(export_time) = '@{DATE}')
-      -- TODO - replace with a date after you enabled pricing export to use pricing data as of this date
+      DATE(export_time) = '2023-06-25')
   SELECT
     usage_cost_data.location.zone AS AvailabilityZone,
     CAST(usage_cost_data.cost AS NUMERIC) + IFNULL((
@@ -119,7 +117,7 @@ view: focus {
         SUM(CAST(c.amount AS NUMERIC))
       FROM
         UNNEST(usage_cost_data.credits) AS c), 0) AS BilledCost,
-    "TODO - replace with the billing account ID in your detailed usage export table name" AS BillingAccountId,
+     usage_cost_data.billing_account_id AS BillingAccountId,
     usage_cost_data.currency AS BillingCurrency,
     PARSE_TIMESTAMP("%Y%m", invoice.month, "America/Los_Angeles") AS BillingPeriodStart,
     TIMESTAMP(DATE_SUB(DATE_ADD(PARSE_DATE("%Y%m", invoice.month), INTERVAL 1 MONTH), INTERVAL 1 DAY), "America/Los_Angeles") AS BillingPeriodEnd,
@@ -197,7 +195,8 @@ view: focus {
       CONCAT(
         "Billing Account ID:", usage_cost_data.billing_account_id,
         ", SKU ID: ", usage_cost_data.sku.id,
-        ", Price Tier Start Amount: ", price.tier_start_amount),
+        ", Price Tier Start Amount: ", CAST(usage_cost_data.price.tier_start_amount AS STRING)
+        ),
       NULL) AS SkuPriceId,
     usage_cost_data.billing_account_id as SubAccountId,
     usage_cost_data.focus_tags AS Tags,
